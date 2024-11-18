@@ -9,22 +9,9 @@ namespace ForgeCore.PluginSupport.OdinInspector
 {
     public static class OdinConverter
     {
-        private static bool IsOdinInspectorPresent()
-        {
-            // Check if Odin Inspector is included in the project by searching for its assembly
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            return assemblies.Any(a => a.GetName().Name.Contains("Sirenix"));
-        }
-        
         [MenuItem("Tools/ForgeCore/Convert to Odin")]
         private static void ConvertToOdin()
         {
-            if (!IsOdinInspectorPresent())
-            {
-                Debug.LogWarning("Odin Inspector was not found in project files");
-                return;
-            }
-            
             string folderPath = "Assets/ForgeCore";
             string[] files = Directory.GetFiles(folderPath, "*.cs", SearchOption.AllDirectories);
 
@@ -32,11 +19,11 @@ namespace ForgeCore.PluginSupport.OdinInspector
             {
                 string fileContent = File.ReadAllText(file);
 
-                // Skip files that are already using Odin
+                // Check if "using Sirenix.OdinInspector" is already present
                 if (!fileContent.Contains("using Sirenix.OdinInspector"))
                 {
-                    // Add '' if not present
-                    fileContent = "\n" + fileContent;
+                    // Add 'using Sirenix.OdinInspector;' at the top if not present
+                    fileContent = "using Sirenix.OdinInspector;\n" + fileContent;
                 }
 
                 // Convert MonoBehaviour to SerializedMonoBehaviour
@@ -58,12 +45,6 @@ namespace ForgeCore.PluginSupport.OdinInspector
         [MenuItem("Tools/ForgeCore/Revert to Original")]
         private static void RevertToOriginal()
         {
-            if (!IsOdinInspectorPresent())
-            {
-                Debug.LogWarning("Odin Inspector was not found in project files");
-                return;
-            }
-            
             string folderPath = "Assets/ForgeCore";
             string[] files = Directory.GetFiles(folderPath, "*.cs", SearchOption.AllDirectories);
 
@@ -79,16 +60,16 @@ namespace ForgeCore.PluginSupport.OdinInspector
                 // Handle generic MonoBehaviour (Singleton<T>)
                 fileContent = RevertGenericMonoBehaviour(fileContent, "SerializedMonoBehaviour", "MonoBehaviour");
 
-                // Remove '' if it is the only using statement
-                if (fileContent.Contains(""))
+                // Remove 'using Sirenix.OdinInspector;' if it is the only using statement
+                if (fileContent.Contains("using Sirenix.OdinInspector;"))
                 {
-                    string pattern = @"\s*";
+                    string pattern = @"using Sirenix.OdinInspector;\s*";
                     fileContent = Regex.Replace(fileContent, pattern, string.Empty);
 
-                    // If only "" was present, remove it
+                    // If only "using Sirenix.OdinInspector;" was present, remove it
                     if (fileContent.Trim().StartsWith("using") && !fileContent.Contains("using"))
                     {
-                        fileContent = fileContent.Replace("", "").Trim();
+                        fileContent = fileContent.Replace("using Sirenix.OdinInspector;", "").Trim();
                     }
                 }
 
