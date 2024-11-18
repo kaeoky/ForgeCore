@@ -1,6 +1,4 @@
-using System;
 using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
@@ -19,27 +17,57 @@ namespace ForgeCore.PluginSupport.OdinInspector
             {
                 string fileContent = File.ReadAllText(file);
 
-                // Check if "using Sirenix.OdinInspector" is already present
-                if (!fileContent.Contains("using Sirenix.OdinInspector"))
+                // Check if the file contains classes derived from MonoBehaviour or ScriptableObject, including generics
+                bool hasMonoOrScriptableObjectClass = false;
+
+                // Regex to match both non-generic and generic classes inheriting from MonoBehaviour or ScriptableObject
+                foreach (Match match in Regex.Matches(fileContent,
+                             @"public\s+class\s+\w+(\<.*\>)?\s*:\s*(MonoBehaviour|ScriptableObject)"))
                 {
-                    // Add 'using Sirenix.OdinInspector;' at the top if not present
-                    fileContent = "using Sirenix.OdinInspector;\n" + fileContent;
+                    hasMonoOrScriptableObjectClass = true;
+                    break;
                 }
 
-                // Convert MonoBehaviour to SerializedMonoBehaviour
-                fileContent = ConvertClass(fileContent, "MonoBehaviour", "SerializedMonoBehaviour");
-                // Convert ScriptableObject to SerializedScriptableObject
-                fileContent = ConvertClass(fileContent, "ScriptableObject", "SerializedScriptableObject");
+                // Only modify files with relevant class types (MonoBehaviour or ScriptableObject)
+                if (hasMonoOrScriptableObjectClass)
+                {
+                    // Check if "using Sirenix.OdinInspector" is already present
+                    if (!fileContent.Contains("using Sirenix.OdinInspector"))
+                    {
+                        // Add 'using Sirenix.OdinInspector;' at the top if not present
+                        fileContent = "using Sirenix.OdinInspector;\n" + fileContent;
+                    }
 
-                // Handle generic MonoBehaviour (Singleton<T>)
-                fileContent = ConvertGenericMonoBehaviour(fileContent, "MonoBehaviour", "SerializedMonoBehaviour");
+                    // Convert MonoBehaviour to SerializedMonoBehaviour
+                    fileContent = ConvertClass(fileContent, "MonoBehaviour", "SerializedMonoBehaviour");
+                    // Convert ScriptableObject to SerializedScriptableObject
+                    fileContent = ConvertClass(fileContent, "ScriptableObject", "SerializedScriptableObject");
 
-                // Write the changes back to the file
-                File.WriteAllText(file, fileContent);
+                    // Handle generic MonoBehaviour (Singleton<T>) - converted as well
+                    fileContent = ConvertGenericMonoBehaviour(fileContent, "MonoBehaviour", "SerializedMonoBehaviour");
+
+                    // Write the changes back to the file
+                    File.WriteAllText(file, fileContent);
+                }
             }
 
             AssetDatabase.Refresh();
             Debug.Log("Conversion completed!");
+        }
+
+        private static string ConvertClass(string fileContent, string oldType, string newType)
+        {
+            // Replace occurrences of the old type with the new type
+            return fileContent.Replace($" : {oldType}", $" : {newType}");
+        }
+
+        private static string ConvertGenericMonoBehaviour(string fileContent, string oldType, string newType)
+        {
+            // Regex to match MonoBehaviour types that are generic (e.g., MonoBehaviour<T>)
+            string pattern = $@"\b{oldType}<(.*?)>";
+            string replacement = $"{newType}<$1>";
+
+            return Regex.Replace(fileContent, pattern, replacement);
         }
 
         [MenuItem("Tools/ForgeCore/Revert to Original")]
@@ -50,6 +78,10 @@ namespace ForgeCore.PluginSupport.OdinInspector
 
             foreach (string file in files)
             {
+                // Skip the OdinConverter.cs file to prevent modifying it
+                if (file.EndsWith("OdinConverter.cs"))
+                    continue;
+
                 string fileContent = File.ReadAllText(file);
 
                 // Revert SerializedMonoBehaviour to MonoBehaviour
@@ -57,7 +89,7 @@ namespace ForgeCore.PluginSupport.OdinInspector
                 // Revert SerializedScriptableObject to ScriptableObject
                 fileContent = RevertClass(fileContent, "SerializedScriptableObject", "ScriptableObject");
 
-                // Handle generic MonoBehaviour (Singleton<T>)
+                // Handle generic MonoBehaviour (SerializedMonoBehaviour<T>) - reverted as well
                 fileContent = RevertGenericMonoBehaviour(fileContent, "SerializedMonoBehaviour", "MonoBehaviour");
 
                 // Remove 'using Sirenix.OdinInspector;' if it is the only using statement
@@ -81,39 +113,17 @@ namespace ForgeCore.PluginSupport.OdinInspector
             Debug.Log("Reversion completed!");
         }
 
-        private static string ConvertClass(string fileContent, string oldClassType, string newClassType)
+        private static string RevertClass(string fileContent, string oldType, string newType)
         {
-            // Regex to find classes that derive from MonoBehaviour or ScriptableObject
-            string pattern = $@"\bpublic class (\w+)\s*:\s*{oldClassType}\b";
-            string replacement = $@"public class $1 : {newClassType}";
-
-            // This should catch all MonoBehaviour and ScriptableObject classes
-            return Regex.Replace(fileContent, pattern, replacement);
+            // Replace occurrences of the old type with the new type
+            return fileContent.Replace($" : {oldType}", $" : {newType}");
         }
 
-        private static string ConvertGenericMonoBehaviour(string fileContent, string oldClassType, string newClassType)
+        private static string RevertGenericMonoBehaviour(string fileContent, string oldType, string newType)
         {
-            // Regex to find generic MonoBehaviour classes like Singleton<T>
-            string pattern = $@"\bpublic class (\w+)<T>\s*:\s*{oldClassType}\s*where\s*T\s*:\s*Component\b";
-            string replacement = $@"public class $1<T> : {newClassType} where T : Component";
-
-            return Regex.Replace(fileContent, pattern, replacement);
-        }
-
-        private static string RevertClass(string fileContent, string oldClassType, string newClassType)
-        {
-            // Regex to revert SerializedMonoBehaviour to MonoBehaviour or SerializedScriptableObject to ScriptableObject
-            string pattern = $@"\bpublic class (\w+)\s*:\s*{oldClassType}\b";
-            string replacement = $@"public class $1 : {newClassType}";
-
-            return Regex.Replace(fileContent, pattern, replacement);
-        }
-
-        private static string RevertGenericMonoBehaviour(string fileContent, string oldClassType, string newClassType)
-        {
-            // Regex to revert generic MonoBehaviour classes like Singleton<T>
-            string pattern = $@"\bpublic class (\w+)<T>\s*:\s*{oldClassType}\s*where\s*T\s*:\s*Component\b";
-            string replacement = $@"public class $1<T> : {newClassType} where T : Component";
+            // Regex to match MonoBehaviour types that are generic (e.g., SerializedMonoBehaviour<T>)
+            string pattern = $@"\b{oldType}<(.*?)>";
+            string replacement = $"{newType}<$1>";
 
             return Regex.Replace(fileContent, pattern, replacement);
         }
