@@ -10,7 +10,5 @@ namespace ForgeCore.Utility
         public static readonly UnityEvent<PlayerInput> OnControlsChanged = new();
 
         #endregion
-
-        public static readonly UnityEvent OnPlayerDeaht = new();
     }
 }

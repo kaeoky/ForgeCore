@@ -24,7 +24,7 @@ namespace ForgeCore.Utility.UI
 
         private void Update()
         {
-            _time += Time.deltaTime;
+            _time += Time.unscaledDeltaTime;
             _frameCount++;
             
             if (_time < updateInterval)
