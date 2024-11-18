@@ -26,6 +26,9 @@ namespace ForgeCore.Utility.Editor.MenuItems
             // Set the newly instantiated object as the active selection
             Selection.activeGameObject = instantiatedObject;
 
+            // Add Undo functionality
+            Undo.RegisterCreatedObjectUndo(instantiatedObject, $"Create {instantiatedObject}");
+            
             return instantiatedObject;
         }
     }
