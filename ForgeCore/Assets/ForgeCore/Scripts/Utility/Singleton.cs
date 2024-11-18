@@ -22,7 +22,7 @@ namespace ForgeCore.Utility
             }
             
             Instance = this as T;
-            name = $"{name} {appendix}";
+            name = $"{typeof(T).Name} {appendix}";
             
             if (isPersistent)
                 DontDestroyOnLoad(this);
