@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
@@ -7,9 +9,16 @@ namespace ForgeCore.PluginSupport.OdinInspector
 {
     public static class OdinConverter
     {
-        [MenuItem("Tools/ForgeCore/Convert to Odin")]
+        [MenuItem("Tools/ForgeCore/Plugin Support/Convert to Odin")]
         private static void ConvertToOdin()
         {
+            // Check if OdinInspector is in the project
+            if (!IsOdinInspectorPresent())
+            {
+                Debug.LogWarning("Odin Inspector is not found in the project. Please install it to use this tool.");
+                return;
+            }
+
             string folderPath = "Assets/ForgeCore";
             string[] files = Directory.GetFiles(folderPath, "*.cs", SearchOption.AllDirectories);
 
@@ -21,8 +30,7 @@ namespace ForgeCore.PluginSupport.OdinInspector
                 bool hasMonoOrScriptableObjectClass = false;
 
                 // Regex to match both non-generic and generic classes inheriting from MonoBehaviour or ScriptableObject
-                foreach (Match match in Regex.Matches(fileContent,
-                             @"public\s+class\s+\w+(\<.*\>)?\s*:\s*(MonoBehaviour|ScriptableObject)"))
+                foreach (Match match in Regex.Matches(fileContent, @"public\s+class\s+\w+(\<.*\>)?\s*:\s*(MonoBehaviour|ScriptableObject)"))
                 {
                     hasMonoOrScriptableObjectClass = true;
                     break;
@@ -70,9 +78,16 @@ namespace ForgeCore.PluginSupport.OdinInspector
             return Regex.Replace(fileContent, pattern, replacement);
         }
 
-        [MenuItem("Tools/ForgeCore/Revert to Original")]
+        [MenuItem("Tools/ForgeCore/Plugin Support/Revert to Original")]
         private static void RevertToOriginal()
         {
+            // Check if OdinInspector is in the project
+            if (!IsOdinInspectorPresent())
+            {
+                Debug.LogWarning("Odin Inspector is not found in the project. Please install it to use this tool.");
+                return;
+            }
+
             string folderPath = "Assets/ForgeCore";
             string[] files = Directory.GetFiles(folderPath, "*.cs", SearchOption.AllDirectories);
 
@@ -126,6 +141,13 @@ namespace ForgeCore.PluginSupport.OdinInspector
             string replacement = $"{newType}<$1>";
 
             return Regex.Replace(fileContent, pattern, replacement);
+        }
+
+        private static bool IsOdinInspectorPresent()
+        {
+            // Check if Odin Inspector is included in the project by searching for its assembly
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            return assemblies.Any(a => a.GetName().Name.Contains("Sirenix"));
         }
     }
 }
